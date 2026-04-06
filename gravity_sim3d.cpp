@@ -270,7 +270,7 @@ int main() {
     glDeleteBuffers(1, &gridVBO);
 
     glDeleteProgram(shaderProgram);
-    
+
     glfwTerminate();
     return 0;
 }
@@ -302,3 +302,136 @@ GLFWwindow* StartGLUI() {
 
     return window;
 }
+
+GLuint CreateShaderProgram(const char* vertexSource, const char* fragmentSource) {
+    // Vertex shader
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexSource, nullptr);
+    glCompileShader(vertexShader);
+
+    GLint success;
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetShaderInfoLog(vertexShader, 512, nullptr, infoLog);
+        std::cerr << "Vertex shader compilation failed: " << infoLog << std::endl;
+    }
+
+    // Fragment shader
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentSource, nullptr);
+    glCompileShader(fragmentShader);
+
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetShaderInfoLog(fragmentShader, 512, nullptr, infoLog);
+        std::cerr << "Fragment shader compilation failed: " << infoLog << std::endl;
+    }
+
+    // Shader program
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+        std::cerr << "Shader program linking failed: " << infoLog << std::endl;
+    }
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    return shaderProgram;
+}
+void CreateVBOVAO(GLuint& VAO, GLuint& VBO, const float* vertices, size_t vertexCount) {
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertexCount * sizeof(float), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+}
+
+void UpdateCam(GLuint shaderProgram, glm::vec3 cameraPos) {
+    glUseProgram(shaderProgram);
+    glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    float cameraSpeed = 1000.0f * deltaTime;
+    bool shiftPressed = (mods & GLFW_MOD_SHIFT) != 0;
+    Object& lastObj = objs[objs.size() - 1];
+    
+
+    if (glfwGetKey(window, GLFW_KEY_W)==GLFW_PRESS){
+        cameraPos += cameraSpeed * cameraFront;
+    }
+    if (glfwGetKey(window, GLFW_KEY_S)==GLFW_PRESS){
+        cameraPos -= cameraSpeed * cameraFront;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_A)==GLFW_PRESS){
+        cameraPos -= cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+    }
+    if (glfwGetKey(window, GLFW_KEY_D)==GLFW_PRESS){
+        cameraPos += cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS){
+        cameraPos += cameraSpeed * cameraUp;
+    }
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS){
+        cameraPos -= cameraSpeed * cameraUp;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS){
+        pause = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_RELEASE){
+        pause = false;
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS){
+        glfwTerminate();
+        glfwWindowShouldClose(window);
+        running = false;
+    }
+
+    // init arrows pos up down left right
+    if(!objs.empty() && objs[objs.size() - 1].Initalizing){
+        if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)){
+            if (!shiftPressed) {
+                objs[objs.size()-1].position[1] += 0.5;
+            }
+        };
+        if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            if (!shiftPressed) {
+                objs[objs.size()-1].position[1] -= 0.5;
+            }
+        }
+        if(key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)){
+            objs[objs.size()-1].position[0] += 0.5;
+        };
+        if(key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)){
+            objs[objs.size()-1].position[0] -= 0.5;
+        };
+        if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            objs[objs.size()-1].position[2] += 0.5;
+        };
+
+        if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            objs[objs.size()-1].position[2] -= 0.5;
+        }
+    };
+    
+};
