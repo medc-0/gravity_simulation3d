@@ -425,7 +425,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         if(key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)){
             objs[objs.size()-1].position[0] -= 0.5;
         };
-        if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        if (key == GLFW_KEY_L && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
             objs[objs.size()-1].position[2] += 0.5;
         };
 
@@ -435,3 +435,128 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     };
     
 };
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; 
+    lastX = xpos;
+    lastY = ypos;
+
+    float sensitivity = 0.1f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    if(pitch > 89.0f) pitch = 89.0f;
+    if(pitch < -89.0f) pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(front);
+}
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods){
+    if (button == GLFW_MOUSE_BUTTON_LEFT){
+        if (action == GLFW_PRESS){
+            objs.emplace_back(glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0f, 0.0f, 0.0f), initMass);
+            objs[objs.size()-1].Initalizing = true;
+        };
+        if (action == GLFW_RELEASE){
+            objs[objs.size()-1].Initalizing = false;
+            objs[objs.size()-1].Launched = true;
+        };
+    };
+    if (!objs.empty() && button == GLFW_MOUSE_BUTTON_RIGHT && objs[objs.size()-1].Initalizing) {
+        if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+            objs[objs.size()-1].mass *= 1.2;}
+            std::cout<<"MASS: "<<objs[objs.size()-1].mass<<std::endl;
+    }
+};
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
+    float cameraSpeed = 50000.0f * deltaTime;
+    if(yoffset>0){
+        cameraPos += cameraSpeed * cameraFront;
+    } else if(yoffset<0){
+        cameraPos -= cameraSpeed * cameraFront;
+    }
+}
+
+glm::vec3 sphericalToCartesian(float r, float theta, float phi){
+    float x = r * sin(theta) * cos(phi);
+    float y = r * cos(theta);
+    float z = r * sin(theta) * sin(phi);
+    return glm::vec3(x, y, z);
+};
+void DrawGrid(GLuint shaderProgram, GLuint gridVAO, size_t vertexCount) {
+    glUseProgram(shaderProgram);
+    glm::mat4 model = glm::mat4(1.0f); // Identity matrix for the grid
+    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+    glBindVertexArray(gridVAO);
+    glPointSize(5.0f);
+    glDrawArrays(GL_LINES, 0, vertexCount / 3);
+    glBindVertexArray(0);
+}
+std::vector<float> CreateGridVertices(float size, int divisions, const std::vector<Object>& objs) {
+    std::vector<float> vertices;
+    float step = size / divisions;
+    float halfSize = size / 2.0f;
+
+    // x axis
+    for (int yStep = 3; yStep <= 3; ++yStep) {
+        float y = -halfSize*0.3f + yStep * step;
+        for (int zStep = 0; zStep <= divisions; ++zStep) {
+            float z = -halfSize + zStep * step;
+            for (int xStep = 0; xStep < divisions; ++xStep) {
+                float xStart = -halfSize + xStep * step;
+                float xEnd = xStart + step;
+                vertices.push_back(xStart); vertices.push_back(y); vertices.push_back(z);
+                vertices.push_back(xEnd);   vertices.push_back(y); vertices.push_back(z);
+            }
+        }
+    }
+
+    // zaxis
+    for (int xStep = 0; xStep <= divisions; ++xStep) {
+        float x = -halfSize + xStep * step;
+        for (int yStep = 3; yStep <= 3; ++yStep) {
+            float y = -halfSize*0.3f + yStep * step;
+            for (int zStep = 0; zStep < divisions; ++zStep) {
+                float zStart = -halfSize + zStep * step;
+                float zEnd = zStart + step;
+                vertices.push_back(x); vertices.push_back(y); vertices.push_back(zStart);
+                vertices.push_back(x); vertices.push_back(y); vertices.push_back(zEnd);
+            }
+        }
+    }
+    
+    float minz = 0.0f;
+    for (int i = 0; i < vertices.size(); i += 3) {
+        glm::vec3 vertexPos(vertices[i], vertices[i+1], vertices[i+2]);
+        glm::vec3 totalDisplacement(0.0f);
+        
+
+        for (const auto& obj : objs) {
+            glm::vec3 toObject = obj.GetPos() - vertexPos;
+            float distance = glm::length(toObject);
+
+            float distance_m = distance * 1000.0f;
+            float rs = (2*G*obj.mass)/(c*c);
+
+            float z = 2 * sqrt(rs*(distance_m - rs)) * 100.0f;
+            totalDisplacement += z;
+            
+        }
+        
+        vertexPos += totalDisplacement; 
+
+         vertices[i+1] = vertexPos[1] / 15.0f - 3000.0f;
+    }
+
+    return vertices;
+}
