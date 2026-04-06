@@ -546,7 +546,7 @@ std::vector<float> CreateGridVertices(float size, int divisions, const std::vect
             float distance = glm::length(toObject);
 
             float distance_m = distance * 1000.0f;
-            float rs = (2*G*obj.mass)/(c*c);
+            float rs = (2*G*obj.mass)/(cl*cl);
 
             float z = 2 * sqrt(rs*(distance_m - rs)) * 100.0f;
             totalDisplacement += z;
